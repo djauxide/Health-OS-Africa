@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.local
+.env.*.local
+*.log
+postgres_data/
+minio_data/
+
