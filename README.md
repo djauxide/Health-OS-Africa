@@ -43,7 +43,7 @@ Build frontend and backend:
 npm run build
 ```
 
-## Docker Environment
+## Podman Environment
 
 Copy the environment template:
 
@@ -54,7 +54,8 @@ cp .env.example .env
 Start the full stack:
 
 ```bash
-docker compose up -d --build
+podman machine start
+podman compose up -d --build
 ```
 
 Services:
@@ -66,6 +67,12 @@ Gateway:  http://localhost:8080
 MinIO:    http://localhost:9001
 Postgres: localhost:5432
 Redis:    localhost:6379
+```
+
+Stop the stack:
+
+```bash
+podman compose down
 ```
 
 ## Technical Design
