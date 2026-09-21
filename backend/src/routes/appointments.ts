@@ -1,52 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query } from "../database.js";
-import { requireAuth } from "../middleware/auth.js";
+import { AppError, ah } from "../errors.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 import { audit } from "../services/audit.js";
 import type { AuthenticatedRequest } from "../types.js";
-
-const appointmentSchema = z.object({
-  patientId: z.string().uuid(),
-  scheduledStart: z.string().datetime(),
-  reason: z.string().optional().nullable()
-});
-
-export const appointmentsRouter = Router();
-
-appointmentsRouter.use(requireAuth);
-
-appointmentsRouter.get("/", async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const result = await query(
-      `SELECT a.id, a.scheduled_start, a.status, a.reason, p.patient_number, p.first_name, p.last_name
-       FROM appointments a
-       JOIN patients p ON p.id = a.patient_id
-       WHERE a.tenant_id = $1 AND a.clinic_id = $2
-       ORDER BY a.scheduled_start ASC
-       LIMIT 50`,
-      [req.user!.tenantId, req.user!.clinicId]
-    );
-
-    return res.json({ data: result.rows });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-appointmentsRouter.post("/", async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const payload = appointmentSchema.parse(req.body);
-    const result = await query<{ id: string }>(
-      `INSERT INTO appointments (tenant_id, clinic_id, patient_id, scheduled_start, reason)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [req.user!.tenantId, req.user!.clinicId, payload.patientId, payload.scheduledStart, payload.reason || null]
-    );
-
-    await audit(req.user, "APPOINTMENT_BOOKED", "Appointment", result.rows[0].id);
-    return res.status(201).json({ data: result.rows[0] });
-  } catch (error) {
-    return next(error);
-  }
-});
-
+const schema = z.object({ patientId: z.string().uuid(), scheduledStart: z.string().datetime(), reason: z.string().max(500).optional().nullable() });
+export const appointmentsRouter = Router(); appointmentsRouter.use(requireAuth);
+appointmentsRouter.get("/", ah(async (req: AuthenticatedRequest, res) => { const r = await query(`SELECT a.id,a.scheduled_start,a.status,a.reason,p.patient_number,p.first_name,p.last_name FROM appointments a JOIN patients p ON p.id=a.patient_id WHERE a.tenant_id=$1 AND a.clinic_id=$2 ORDER BY a.scheduled_start LIMIT 50`, [req.user!.tenantId, req.user!.clinicId]); res.json({ data: r.rows }); }));
+appointmentsRouter.post("/", requireRole(["RECEPTIONIST", "NURSE", "CLINIC_ADMIN"]), ah(async (req: AuthenticatedRequest, res) => { const b = schema.parse(req.body), u = req.user!; const own = await query("SELECT 1 FROM patients WHERE id=$1 AND tenant_id=$2 AND clinic_id=$3", [b.patientId, u.tenantId, u.clinicId]); if (!own.rows[0]) throw new AppError(404, "PATIENT_NOT_FOUND", "Patient not found"); const r = await query<{ id: string }>("INSERT INTO appointments (tenant_id,clinic_id,patient_id,scheduled_start,reason) VALUES ($1,$2,$3,$4,$5) RETURNING id", [u.tenantId,u.clinicId,b.patientId,b.scheduledStart,b.reason || null]); await audit(u,"APPOINTMENT_BOOKED","Appointment",r.rows[0].id); res.status(201).json({ data: r.rows[0] }); }));

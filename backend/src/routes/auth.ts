@@ -1,88 +1,13 @@
+import rateLimit from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { config } from "../config.js";
 import { query } from "../database.js";
+import { ah } from "../errors.js";
 import { audit } from "../services/audit.js";
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8)
-});
-
+const schema = z.object({ email: z.string().email(), password: z.string().min(8), tenantId: z.string().uuid().optional() });
 export const authRouter = Router();
-
-authRouter.post("/login", async (req, res, next) => {
-  try {
-    const payload = loginSchema.parse(req.body);
-    const result = await query<{
-      id: string;
-      tenant_id: string;
-      clinic_id: string;
-      email: string;
-      password_hash: string;
-      first_name: string;
-      last_name: string;
-      role: string;
-      active: boolean;
-    }>(
-      `SELECT id, tenant_id, clinic_id, email, password_hash, first_name, last_name, role, active
-       FROM users
-       WHERE lower(email) = lower($1)
-       LIMIT 1`,
-      [payload.email]
-    );
-
-    const user = result.rows[0];
-    const valid = user?.active ? await bcrypt.compare(payload.password, user.password_hash) : false;
-
-    if (!user || !valid) {
-      await audit(undefined, "LOGIN_FAILED", "User", undefined, { email: payload.email });
-      return res.status(401).json({ error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password" } });
-    }
-
-    const accessToken = jwt.sign(
-      {
-        sub: user.id,
-        tenant_id: user.tenant_id,
-        clinic_id: user.clinic_id,
-        email: user.email,
-        role: user.role
-      },
-      config.jwtSecret,
-      { expiresIn: "8h" }
-    );
-
-    await audit(
-      {
-        id: user.id,
-        tenantId: user.tenant_id,
-        clinicId: user.clinic_id,
-        email: user.email,
-        role: user.role as never
-      },
-      "LOGIN_SUCCESS",
-      "User",
-      user.id
-    );
-
-    return res.json({
-      data: {
-        accessToken,
-        user: {
-          id: user.id,
-          tenantId: user.tenant_id,
-          clinicId: user.clinic_id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          role: user.role
-        }
-      }
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
+const limiter = rateLimit({ windowMs: 60_000, limit: config.loginRateLimit, standardHeaders: true, legacyHeaders: false, message: { error: { code: "RATE_LIMITED", message: "Too many login attempts. Try again in a minute." } } });
+authRouter.post("/login", limiter, ah(async (req, res) => { const b = schema.parse(req.body); const r = await query<any>(`SELECT id,tenant_id,clinic_id,email,password_hash,first_name,last_name,role,active FROM users WHERE lower(email)=lower($1) AND ($2::uuid IS NULL OR tenant_id=$2) ORDER BY created_at LIMIT 1`, [b.email, b.tenantId ?? null]); const u = r.rows[0]; const valid = u?.active ? await bcrypt.compare(b.password, u.password_hash) : false; if (!u || !valid) { await audit(undefined,"LOGIN_FAILED","User",undefined,{ email: b.email }); return res.status(401).json({ error: { code: "INVALID_CREDENTIALS", message: "Invalid email or password" } }); } const accessToken = jwt.sign({ sub:u.id, tenant_id:u.tenant_id, clinic_id:u.clinic_id, email:u.email, role:u.role }, config.jwtSecret, { expiresIn:"8h", algorithm:"HS256" }); await audit({ id:u.id, tenantId:u.tenant_id, clinicId:u.clinic_id, email:u.email, role:u.role },"LOGIN_SUCCESS","User",u.id); res.json({ data: { accessToken, user: { id:u.id, tenantId:u.tenant_id, clinicId:u.clinic_id, email:u.email, firstName:u.first_name, lastName:u.last_name, role:u.role } } }); }));
