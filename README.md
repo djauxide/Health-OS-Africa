@@ -10,7 +10,13 @@ HealthOS Africa is a multi-tenant clinical operating system MVP for paperless cl
 - `infra/nginx/`: Nginx gateway configuration.
 - `docker-compose.yml`: Production-shaped local stack with PostgreSQL, Redis, MinIO, backend, frontend, and gateway.
 
+## Project completion and demo readiness
+
+See the [Project Completion & Demo Readiness Plan](docs/PROJECT_COMPLETION_PLAN.md) for release gates, workflow acceptance checks, security review items, and the proposed stakeholder demo sequence.
+
 ## Demo Login
+
+The credentials below are intended for local seeded development only. Do not use them in a hosted or production environment; replace/remove default credentials and configure secure secrets before deployment.
 
 ```text
 Email: admin@healthos.test
@@ -65,3 +71,7 @@ Redis:    localhost:6379
 ## Technical Design
 
 - [HealthOS Africa Technical Design Document](docs/healthos-africa-technical-design.md)
+
+## Prototype status
+
+This is an MVP engineering baseline. Successful builds, security testing, clinical validation, production readiness, and authorization for real patient data must be verified separately. Use synthetic data for demonstrations.
