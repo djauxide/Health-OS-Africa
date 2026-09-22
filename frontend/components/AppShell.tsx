@@ -11,7 +11,46 @@ const links = [
   { href: "/appointments", label: "Appointments" },
   { href: "/audit", label: "Audit" }
 ];
+
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname(); const router = useRouter();
-  return <div className="shell"><aside className="sidebar"><div className="brand">HealthOS Africa</div><nav className="nav" aria-label="Primary navigation">{links.map((link) => <Link className={pathname.startsWith(link.href) ? "active" : ""} href={link.href} key={link.href}>{link.label}</Link>)}</nav></aside><main className="main"><div className="topbar"><div><p className="kicker">Ubuntu Family Clinic · Connected</p><h1>Clinical Operations</h1></div><button className="button secondary" onClick={() => { clearSession(); router.push("/login"); }} type="button">Sign out</button></div>{children}</main></div>;
+  const pathname = usePathname();
+  const router = useRouter();
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand-wrap">
+          <div className="brand-mark">H</div>
+          <div>
+            <div className="brand-name">HealthOS Africa</div>
+            <small>Clinical operations</small>
+          </div>
+        </div>
+
+        <nav className="nav" aria-label="Primary navigation">
+          {links.map((link) => {
+            const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+            return (
+              <Link key={link.href} href={link.href} className={isActive ? "nav-link active" : "nav-link"}>
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <button
+          type="button"
+          className="logout-button"
+          onClick={() => {
+            clearSession();
+            router.push("/login");
+          }}
+        >
+          Logout
+        </button>
+      </aside>
+
+      <main className="page-shell">{children}</main>
+    </div>
+  );
 }
