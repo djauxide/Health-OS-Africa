@@ -19,8 +19,11 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=build /app/frontend/.next/standalone ./
-COPY --from=build /app/frontend/.next/static ./.next/static
-COPY --from=build /app/frontend/public ./public
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/frontend/package.json ./frontend/package.json
+COPY --from=build /app/frontend/.next ./frontend/.next
+COPY --from=build /app/frontend/public ./frontend/public
+WORKDIR /app/frontend
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["npm", "run", "start"]
