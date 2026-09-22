@@ -6,9 +6,14 @@ import { clearSession } from "../lib/api";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/queue", label: "Clinic Queue" },
+  { href: "/receptionist", label: "Reception" },
+  { href: "/nurse", label: "Nurse" },
+  { href: "/doctor", label: "Doctor" },
+  { href: "/pharmacist", label: "Pharmacist" },
+  { href: "/admin", label: "Admin" },
   { href: "/patients", label: "Patients" },
   { href: "/appointments", label: "Appointments" },
+  { href: "/queue", label: "Clinic Queue" },
   { href: "/audit", label: "Audit" }
 ];
 
